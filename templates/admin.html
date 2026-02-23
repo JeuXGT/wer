@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Paneli - BUZZTALK</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #eee;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      color: #00ccff;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #222;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #333;
+    }
+    th {
+      background: #00ccff;
+      color: #000;
+    }
+    tr:hover {
+      background: #333;
+    }
+    button {
+      background-color: #e74c3c;
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #c0392b;
+    }
+    .back-btn {
+      display: inline-block;
+      margin-bottom: 15px;
+      padding: 6px 12px;
+      background-color: #00ccff;
+      color: #000;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .back-btn:hover {
+      background-color: #0099cc;
+    }
+    input[type=text], select {
+      padding: 5px;
+      margin: 4px 2px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      background: #444;
+      color: white;
+    }
+    .form-container {
+      margin-bottom: 30px;
+      background: #222;
+      padding: 15px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <a href="/" class="back-btn"> ← Geri Dön </a>
+  <h1>BUZZTALK - Admin Paneli</h1>
+
+  <div class="form-container">
+    <h3>Yeni Hesap Ekle</h3>
+    <form id="addUserForm">
+      <input type="text" id="newUsername" placeholder="Kullanıcı Adı" required />
+      <input type="text" id="newPassword" placeholder="Şifre" required />
+      <select id="newRank">
+        <option value="KULLANICI">KULLANICI</option>
+        <option value="KURUCU">KURUCU</option>
+        <option value="MODERATOR">MODERATOR</option>
+        <option value="YETKILI">YETKILI</option>
+      </select>
+      <button type="submit">Ekle</button>
+    </form>
+    <div id="addUserMsg"></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Kullanıcı Adı</th>
+        <th>Şifre</th>
+        <th>Rank</th>
+        <th>İşlemler</th>
+      </tr>
+    </thead>
+    <tbody id="usersTableBody">
+      {% for user in users %}
+      <tr data-username="{{ user.username }}">
+        <td contenteditable="true" class="editable username">{{ user.username }}</td>
+        <td contenteditable="true" class="editable password">{{ user.password }}</td>
+        <td>
+          <select class="editable rank">
+            <option value="KULLANICI" {% if user.rank == "KULLANICI" %}selected{% endif %}>KULLANICI</option>
+            <option value="KURUCU" {% if user.rank == "KURUCU" %}selected{% endif %}>KURUCU</option>
+            <option value="MODERATOR" {% if user.rank == "MODERATOR" %}selected{% endif %}>MODERATOR</option>
+            <option value="YETKILI" {% if user.rank == "YETKILI" %}selected{% endif %}>YETKILI</option>
+          </select>
+        </td>
+        <td>
+          <button class="saveBtn">Kaydet</button>
+          <button class="deleteBtn">Hesabı Sil</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+ <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const usersTableBody = document.getElementById('usersTableBody');
+    const addUserForm = document.getElementById('addUserForm');
+    const addUserMsg = document.getElementById('addUserMsg');
+
+    // Kaydetme ve Silme işlemleri
+    usersTableBody.addEventListener('click', function(e) {
+      const tr = e.target.closest('tr');
+      if (!tr) return;
+
+      const oldUsername = tr.dataset.username;
+      const newUsername = tr.querySelector('.username').innerText.trim();
+      const password = tr.querySelector('.password').innerText.trim();
+      const rank = tr.querySelector('.rank').value;
+
+      // Kullanıcı güncelle
+      if (e.target.classList.contains('saveBtn')) {
+        if (newUsername.length === 0 || password.length === 0) {
+          alert("Kullanıcı Adı Ve Şifre Boş Bırakılamaz!");
+          return;
+        }
+
+        fetch('/admin/edit_user', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            oldUsername: oldUsername,
+            newUsername: newUsername,
+            password: password,
+            rank: rank
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            alert(`${oldUsername} Adlı Kullanıcıya Ait SQL Ve Data Verileri Güncellendi!`);
+            tr.dataset.username = newUsername;
+          } else {
+            alert(data.message || `${oldUsername} Adlı Kullanıcıya Ait SQL Ve Data Verileri Güncellenemedi!`);
+          }
+        });
+      }
+
+      // Kullanıcı sil
+      if (e.target.classList.contains('deleteBtn')) {
+        if (!confirm(`${oldUsername} Adlı Kulanıcıya Ait Tüm SQL Ve Data Verilerini Sistemden Tamamen Silmek İstediğinize Eminmisiniz?\n\nBu İşlem Geri Alınamaz!`)) return;
+
+        fetch('/admin/delete_user', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username: oldUsername })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            tr.remove();
+            alert(`${oldUsername} Adlı Kullanıcıya Ait Tüm SQL Ve Data Verileri Sistemden Tamamen Silindi!`);
+          } else {
+            alert(data.message || `${oldUsername} Adlı Kullanıcıya Ait Tüm SQL Ve Data Verileri Sistemden Silinemedi!`);
+          }
+        });
+      }
+    });
+
+    // Yeni kullanıcı ekle
+    addUserForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const username = document.getElementById('newUsername').value.trim();
+      const password = document.getElementById('newPassword').value.trim();
+      const rank = document.getElementById('newRank').value;
+
+      if (username.length === 0 || password.length === 0) {
+        addUserMsg.innerHTML = '<span style="color: #e74c3c;">Boş Bilgi Bırakılamaz!</span>';
+        return;
+      }
+
+      fetch('/admin/add_user', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username, password, rank })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          addUserMsg.innerHTML = `<span style='color: #2ecc71;'>[${rank}] ${username} Kullanıcısı SQL'e Eklendi!</span>`;
+
+          const newRow = document.createElement('tr');
+          newRow.dataset.username = username;
+          newRow.innerHTML = `
+            <td contenteditable="true" class="editable username">${username}</td>
+            <td contenteditable="true" class="editable password">${password}</td>
+            <td>
+              <select class="editable rank">
+                <option value="KULLANICI" ${rank === 'KULLANICI' ? 'selected' : ''}>KULLANICI</option>
+                <option value="KURUCU" ${rank === 'KURUCU' ? 'selected' : ''}>KURUCU</option>
+                <option value="MODERATOR" ${rank === 'MODERATOR' ? 'selected' : ''}>MODERATOR</option>
+                <option value="YETKILI" ${rank === 'YETKILI' ? 'selected' : ''}>YETKILI</option>
+              </select>
+            </td>
+            <td>
+              <button class="saveBtn">Kaydet</button>
+              <button class="deleteBtn">Hesabı Sil</button>
+            </td>
+          `;
+          usersTableBody.appendChild(newRow);
+          addUserForm.reset();
+
+          // Mesajı 3 saniyede gizle
+          setTimeout(() => addUserMsg.innerHTML = '', 3000);
+        } else {
+          addUserMsg.innerHTML = '<span style="color: #e74c3c;">' + (data.message || `[${rank}] ${username} Kullanıcısı SQL'e Eklenemedi!`) + '</span>';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
