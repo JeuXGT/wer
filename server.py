@@ -8,7 +8,7 @@ import sys
 import platform
 
 app = Flask(__name__)
-app.secret_key = secret_keyo
+app.secret_key = 'BUZZTALK-SeCrEt!'
 secret_keyo = 'BUZZTALK-SeCrEt!'
 USERS_FOLDER = "user-datas"
 ROOM_LOG_FOLDER = "room-logs"
@@ -412,3 +412,4 @@ def handle_message(msg):
 if __name__ == '__main__':
     print(f"[BUZZTALK] » Serverler Hazır!")
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+
